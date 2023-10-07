@@ -14,7 +14,7 @@ import { useAccount } from 'wagmi'
 import { signMessage, signTypedData } from '@wagmi/core'
 import { EventMetadata } from '@lens-protocol/metadata'
 import { LENS_APP_ID, LENS_ENVIRONMENT } from '@/utils/lens'
-import { EventPublication } from '@/utils/types'
+import { EventPublication, Profile } from '@/utils/types'
 
 interface LensState {
   loading: boolean
@@ -30,7 +30,9 @@ interface LensStateContext extends LensState {
   CreateEvent: (data: EventMetadata, actions: OpenActionModuleInput[]) => Promise<boolean>
   AttendEvent: (id: string) => Promise<boolean>
   DeleteEvent: (id: string) => Promise<boolean>
+  Comment: (id: string, content: string) => Promise<boolean>
   GetEvents: () => Promise<void>
+  GetAttendees: (id: string) => Promise<Profile[]>
 }
 
 const defaultState: LensStateContext = {
@@ -43,7 +45,9 @@ const defaultState: LensStateContext = {
   CreateEvent: async (data: EventMetadata, actions: OpenActionModuleInput[]) => true,
   AttendEvent: async (id: string) => true,
   DeleteEvent: async (id: string) => true,
+  Comment: async (id: string, content: string) => true,
   GetEvents: async () => { },
+  GetAttendees: async (id: string) => [],
 }
 
 const LensContext = createContext(defaultState)
@@ -59,7 +63,9 @@ export function LensV2Provider(props: PropsWithChildren) {
     CreateEvent,
     DeleteEvent,
     AttendEvent,
+    Comment,
     GetEvents,
+    GetAttendees,
   })
 
   const GetEventsCallback = useCallback(async () => {
@@ -74,16 +80,22 @@ export function LensV2Provider(props: PropsWithChildren) {
       },
     })
 
-    const events = result.items.map((item: any) => {
+    const events = result.items.map(async (item: any) => {
       const metadata = item.metadata as EventMetadataV3Fragment
+      const attendees = await GetAttendees(item.id)
 
-      return {
+      const event = {
         id: item.id,
+        title: `Event ${item.id}`, // metadata.title, // TODO: missing in API
+        content: '', // metadata.content, // TODO: missing in API
         createdAt: item.createdAt,
-        handle: item.by.handle,
-        profileId: item.by.id,
-        ownedBy: item.by.ownedBy.address,
         publishedOn: item.publishedOn?.id,
+        profile: {
+          id: item.by.id,
+          handle: item.by.handle,
+          ownedBy: item.by.ownedBy.address,
+          createdAt: item.by.createdAt,
+        },
 
         startsAt: metadata.startsAt,
         endsAt: metadata.endsAt,
@@ -92,10 +104,23 @@ export function LensV2Provider(props: PropsWithChildren) {
         location: metadata.location,
         geographic: metadata.geographic,
         contentURI: metadata.rawURI,
+
+        attendees: attendees,
       } as EventPublication
+
+      const collectModule = item.openActionModules.find((i: any) => i.__typename === 'SimpleCollectOpenActionSettings')
+      if (collectModule) {
+        event.followerOnly = collectModule.followerOnly
+        if (collectModule.collectLimit) {
+          event.collectLimit = Number(collectModule.collectLimit)
+        }
+      }
+
+      return event
     })
 
-    setState((state) => ({ ...state, events, loading: false }))
+    const data = await Promise.all(events)
+    setState((state) => ({ ...state, events: data, loading: false }))
   }, [state.client])
 
   const AuthenticateCallback = useCallback(async () => {
@@ -161,11 +186,12 @@ export function LensV2Provider(props: PropsWithChildren) {
   useEffect(() => {
     console.log('LensProvider.Initialize Authenticate')
 
-    AuthenticateCallback() // TODO: Handle state properly / Auto Reconnect
+    // AuthenticateCallback() // TODO: Handle state properly / Auto Reconnect
   }, [AuthenticateCallback, account.address])
 
   async function Authenticate() {
     console.log('LensProvider.Authenticate')
+
     await AuthenticateCallback()
   }
 
@@ -240,6 +266,8 @@ export function LensV2Provider(props: PropsWithChildren) {
       try {
         await state.client.transaction.waitUntilComplete({ forTxId: value.txId })
 
+        await GetEventsCallback()
+
         return true
       } catch (ex) {
         console.error(ex)
@@ -249,6 +277,25 @@ export function LensV2Provider(props: PropsWithChildren) {
     }
 
     return false
+  }
+
+  async function DeleteEvent(id: string) {
+    console.log('LensProvider.DeleteEvent', id)
+
+    try {
+      const result = await state.client.publication.hide({
+        for: id,
+      })
+      console.log('RESULT', result)
+
+      await GetEventsCallback()
+    } catch (e) {
+      console.log('Unable to hide publication')
+      console.error(e)
+      return false
+    }
+
+    return true
   }
 
   async function AttendEvent(id: string) {
@@ -262,6 +309,8 @@ export function LensV2Provider(props: PropsWithChildren) {
         for: id,
       })
       console.log('RESULT', result)
+
+      await GetEventsCallback()
     } catch (e) {
       console.log('Unable to attend publication')
       console.error(e)
@@ -271,19 +320,8 @@ export function LensV2Provider(props: PropsWithChildren) {
     return true
   }
 
-  async function DeleteEvent(id: string) {
-    console.log('LensProvider.DeleteEvent', id)
-
-    try {
-      const result = await state.client.publication.hide({
-        for: id,
-      })
-      console.log('RESULT', result)
-    } catch (e) {
-      console.log('Unable to hide publication')
-      console.error(e)
-      return false
-    }
+  async function Comment(id: string, content: string) {
+    console.log('LensProvider.Comment', id, content)
 
     return true
   }
@@ -291,6 +329,23 @@ export function LensV2Provider(props: PropsWithChildren) {
   async function GetEvents() {
     console.log('LensProvider.GetEvents')
     await GetEventsCallback()
+  }
+
+  async function GetAttendees(id: string): Promise<Profile[]> {
+    console.log('LensProvider.GetAttendees')
+
+    const result = await state.client.profile.whoActedOnPublication({
+      on: id,
+    })
+
+    return result.items.map((item: any) => {
+      return {
+        id: item.id,
+        handle: item.handle,
+        ownedBy: item.ownedBy.address,
+        createdAt: item.createdAt,
+      }
+    })
   }
 
   async function uploadToIPFS(data: string) {

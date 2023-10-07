@@ -6,11 +6,14 @@ export interface State<T> {
 
 export interface EventPublication {
   id: string
+  title: string
+  content: string
   createdAt: string
-  handle: string
-  profileId: string
-  ownedBy: string
   publishedOn: string
+  profile: Profile
+
+  collectLimit?: number
+  followerOnly?: boolean
 
   startsAt: string
   endsAt: string
@@ -19,4 +22,13 @@ export interface EventPublication {
   location: string | any
   geographic: string | any
   contentURI: string
+
+  attendees: Profile[]
+}
+
+export interface Profile {
+  id: string
+  handle: string
+  ownedBy: string
+  createdAt: string
 }
