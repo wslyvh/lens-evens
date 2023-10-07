@@ -32,3 +32,15 @@ export interface Profile {
   ownedBy: string
   createdAt: string
 }
+
+export interface EventData {
+  appId: string
+  locale: string
+  title: string
+  content: string
+  startsAt: string
+  endsAt: string
+  location: string
+  links: string[]
+  tags: string[]
+}

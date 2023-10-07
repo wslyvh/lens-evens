@@ -6,6 +6,7 @@ import { CalendarDaysIcon, MapPinIcon, UserIcon } from '@heroicons/react/24/outl
 import Image from 'next/image'
 import dayjs from 'dayjs'
 import { useAccount } from 'wagmi'
+import { useState } from 'react'
 
 interface Props {
   id: string
@@ -13,6 +14,7 @@ interface Props {
 
 export function EventDetails(props: Props) {
   const account = useAccount()
+  const [loading, setLoading] = useState(false)
   const lens = useLensContext()
   const event = lens.events.find((event) => event.id === props.id)
   if (!event) return null
@@ -21,8 +23,12 @@ export function EventDetails(props: Props) {
   const sameDay = dayjs(event.startsAt).isSame(event.endsAt, 'day')
 
   async function attend() {
-    await lens.Authenticate()
+    setLoading(true)
+    if (!lens.authenticated) {
+      await lens.Authenticate()
+    }
     await lens.AttendEvent(props.id)
+    setLoading(false)
   }
 
   return (
@@ -70,8 +76,18 @@ export function EventDetails(props: Props) {
             <div className='absolute right-8 -top-8'>
               {isAttending && <span className='text-accent'>Attending</span>}
               {!isAttending && (
-                <button onClick={attend} className='btn btn-accent btn-outline btn-sm' disabled={!account.address}>
-                  &nbsp;Attend&nbsp;
+                <button
+                  onClick={attend}
+                  type='button'
+                  className='btn btn-accent btn-outline btn-sm'
+                  disabled={!account.address || loading}>
+                  {loading && (
+                    <>
+                      Loading
+                      <span className='loading loading-spinner h-4 w-4' />
+                    </>
+                  )}
+                  {!loading && <>&nbsp;Attend&nbsp;</>}
                 </button>
               )}
             </div>

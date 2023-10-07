@@ -15,6 +15,7 @@ import { signMessage, signTypedData } from '@wagmi/core'
 import { EventMetadata } from '@lens-protocol/metadata'
 import { LENS_APP_ID, LENS_ENVIRONMENT } from '@/utils/lens'
 import { EventPublication, Profile } from '@/utils/types'
+import { Store, Verify } from '@/utils/storage'
 
 interface LensState {
   loading: boolean
@@ -27,6 +28,7 @@ interface LensState {
 interface LensStateContext extends LensState {
   Authenticate: () => Promise<void>
   CreateProfile: (handle: string) => Promise<boolean>
+  SetProfileManager: () => Promise<boolean>
   CreateEvent: (data: EventMetadata, actions: OpenActionModuleInput[]) => Promise<boolean>
   AttendEvent: (id: string) => Promise<boolean>
   DeleteEvent: (id: string) => Promise<boolean>
@@ -40,13 +42,14 @@ const defaultState: LensStateContext = {
   authenticated: false,
   client: new LensClient({ environment: LENS_ENVIRONMENT }),
   events: [],
-  Authenticate: async () => { },
+  Authenticate: async () => {},
   CreateProfile: async (handle: string) => true,
+  SetProfileManager: async () => true,
   CreateEvent: async (data: EventMetadata, actions: OpenActionModuleInput[]) => true,
   AttendEvent: async (id: string) => true,
   DeleteEvent: async (id: string) => true,
   Comment: async (id: string, content: string) => true,
-  GetEvents: async () => { },
+  GetEvents: async () => {},
   GetAttendees: async (id: string) => [],
 }
 
@@ -60,6 +63,7 @@ export function LensV2Provider(props: PropsWithChildren) {
     ...defaultState,
     Authenticate,
     CreateProfile,
+    SetProfileManager,
     CreateEvent,
     DeleteEvent,
     AttendEvent,
@@ -211,38 +215,47 @@ export function LensV2Provider(props: PropsWithChildren) {
       console.log('Waiting for transaction', createProfileResult.txHash)
       await state.client.transaction.waitUntilComplete({ forTxId: createProfileResult.txId })
 
-      console.log('Authenticate with newly created profile')
-      await AuthenticateCallback()
-
-      console.log('Create Profile Manager Typed Data')
-      const typedProfileManagerResult = await state.client.profile.createChangeProfileManagersTypedData({
-        approveLensManager: true,
-      })
-
-      console.log('Sign Profile Manager')
-      const { id, typedData } = typedProfileManagerResult.unwrap()
-      const signedTypedData = await signTypedData({
-        domain: typedData.domain as any,
-        primaryType: 'ChangeDelegatedExecutorsConfig',
-        message: typedData.value as any,
-        types: typedData.types as any,
-      })
-
-      console.log('Broadcast Profile Manager Transaction')
-      const profileManagerResult = await state.client.transaction.broadcastOnchain({
-        id,
-        signature: signedTypedData,
-      })
-
-      console.log('Profile Manager Result', profileManagerResult)
-      const profileManagerValue = profileManagerResult.unwrap()
-      if (isRelaySuccess(profileManagerValue)) {
-        console.log('Profile Manager Transaction', profileManagerValue.txId)
-        return true
-      }
+      await SetProfileManager()
     } else {
       console.log('Unable to create profile')
       console.error(createProfileResult)
+    }
+
+    return false
+  }
+
+  async function SetProfileManager() {
+    console.log('LensProvider.SetProfileManager')
+
+    if (!state.authenticated) {
+      await AuthenticateCallback()
+    }
+
+    console.log('Create Profile Manager Typed Data')
+    const typedProfileManagerResult = await state.client.profile.createChangeProfileManagersTypedData({
+      approveLensManager: true,
+    })
+
+    console.log('Sign Profile Manager', typedProfileManagerResult)
+    const { id, typedData } = typedProfileManagerResult.unwrap()
+    const signedTypedData = await signTypedData({
+      domain: typedData.domain as any,
+      primaryType: 'ChangeDelegatedExecutorsConfig',
+      message: typedData.value as any,
+      types: typedData.types as any,
+    })
+
+    console.log('Broadcast Profile Manager Transaction')
+    const profileManagerResult = await state.client.transaction.broadcastOnchain({
+      id,
+      signature: signedTypedData,
+    })
+
+    console.log('Profile Manager Result', profileManagerResult)
+    const profileManagerValue = profileManagerResult.unwrap()
+    if (isRelaySuccess(profileManagerValue)) {
+      console.log('Profile Manager Transaction', profileManagerValue.txId)
+      return true
     }
 
     return false
@@ -308,9 +321,18 @@ export function LensV2Provider(props: PropsWithChildren) {
         },
         for: id,
       })
-      console.log('RESULT', result)
 
-      await GetEventsCallback()
+      const value = result.unwrap()
+      if (isRelaySuccess(value)) {
+        console.log('Waiting for transaction', value.txId)
+        await state.client.transaction.waitUntilComplete({ forTxId: value.txId })
+
+        await GetEventsCallback()
+      } else {
+        console.log('Unable to attend publication')
+        console.error(value)
+        return false
+      }
     } catch (e) {
       console.log('Unable to attend publication')
       console.error(e)
@@ -350,11 +372,11 @@ export function LensV2Provider(props: PropsWithChildren) {
 
   async function uploadToIPFS(data: string) {
     console.log('Upload to IPFS', data)
-    // const cid = await Store('post.json', data)
-    // const status = await Verify(cid, true)
-    // if (!status) console.error('Unable to verify CID', cid)
+    const cid = await Store('post.json', data)
+    const status = await Verify(cid, true)
+    if (!status) console.error('Unable to verify CID', cid)
 
-    return `ipfs://${data}`
+    return `ipfs://${cid}`
   }
 
   return <LensContext.Provider value={state}>{props.children}</LensContext.Provider>
