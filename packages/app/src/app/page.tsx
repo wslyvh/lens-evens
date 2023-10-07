@@ -1,10 +1,10 @@
-import { SITE_DESCRIPTION } from '@/utils/site'
+import { Overview } from '@/features/overview'
 
 export default function Home() {
   return (
     <>
-      <h2 className='text-lg'>Next.js + Ethereum starter kit</h2>
-      <p>{SITE_DESCRIPTION}</p>
+      <h2 className='text-lg mb-8'>Upcoming Events</h2>
+      <Overview />
     </>
   )
 }

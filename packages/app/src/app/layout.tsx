@@ -3,6 +3,7 @@ import { PropsWithChildren } from 'react'
 import { SITE_DESCRIPTION, SITE_NAME } from '@/utils/site'
 import { Layout } from '@/components/Layout'
 import { Web3Provider } from '@/context/Web3'
+import { LensV2Provider } from '@/context/Lens'
 import '../assets/globals.css'
 
 export const metadata: Metadata = {
@@ -15,7 +16,9 @@ export default function RootLayout(props: PropsWithChildren) {
     <html lang='en'>
       <body>
         <Web3Provider>
-          <Layout>{props.children}</Layout>
+          <LensV2Provider>
+            <Layout>{props.children}</Layout>
+          </LensV2Provider>
         </Web3Provider>
       </body>
     </html>

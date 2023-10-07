@@ -1,5 +1,5 @@
 {
-  "name": "nexth",
+  "name": "app",
   "version": "0.2.0",
   "license": "MIT",
   "scripts": {
@@ -24,6 +24,8 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",
+    "@lens-protocol/client": "^2.0.0-alpha.8",
+    "@lens-protocol/metadata": "^0.1.0-alpha.30",
     "@web3modal/wagmi": "^3.0.2",
     "dayjs": "^1.11.10",
     "iron-session": "^6.3.1",
@@ -33,7 +35,8 @@
     "react-icons": "^4.11.0",
     "siwe": "^2.1.4",
     "viem": "^1.15.3",
-    "wagmi": "^1.4.3"
+    "wagmi": "^1.4.3",
+    "web3.storage": "^4.5.5"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.10",
