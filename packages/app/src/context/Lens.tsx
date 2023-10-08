@@ -42,14 +42,14 @@ const defaultState: LensStateContext = {
   authenticated: false,
   client: new LensClient({ environment: LENS_ENVIRONMENT }),
   events: [],
-  Authenticate: async () => { },
+  Authenticate: async () => {},
   CreateProfile: async (handle: string) => true,
   SetProfileManager: async () => true,
   CreateEvent: async (event: EventData, actions: OpenActionModuleInput[], file?: File) => true,
   AttendEvent: async (id: string) => true,
   DeleteEvent: async (id: string) => true,
   Comment: async (id: string, content: string) => true,
-  GetEvents: async () => { },
+  GetEvents: async () => {},
   GetAttendees: async (id: string) => [],
 }
 
@@ -281,11 +281,11 @@ export function LensV2Provider(props: PropsWithChildren) {
       ...event,
       attachments: imageURI
         ? [
-          {
-            item: imageURI,
-            type: MediaImageMimeType.PNG,
-          },
-        ]
+            {
+              item: imageURI,
+              type: MediaImageMimeType.PNG,
+            },
+          ]
         : [],
     })
 
