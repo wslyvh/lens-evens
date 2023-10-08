@@ -8,6 +8,16 @@ const nextConfig = {
         hostname: 'images.unsplash.com',
         port: '',
       },
+      {
+        protocol: 'https',
+        hostname: 'gw.ipfs-lens.dev',
+        port: '',
+      },
+      {
+        protocol: 'https',
+        hostname: 'gw.ipfs-lens.com',
+        port: '',
+      },
     ],
   },
 }

@@ -12,10 +12,10 @@ import {
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { signMessage, signTypedData } from '@wagmi/core'
-import { EventMetadata } from '@lens-protocol/metadata'
+import { MediaImageMimeType, event as lensEvent } from '@lens-protocol/metadata'
 import { LENS_APP_ID, LENS_ENVIRONMENT } from '@/utils/lens'
-import { EventPublication, Profile } from '@/utils/types'
-import { Store, Verify } from '@/utils/storage'
+import { EventData, EventPublication, Profile } from '@/utils/types'
+import { Store, Upload, Verify } from '@/utils/storage'
 
 interface LensState {
   loading: boolean
@@ -29,7 +29,7 @@ interface LensStateContext extends LensState {
   Authenticate: () => Promise<void>
   CreateProfile: (handle: string) => Promise<boolean>
   SetProfileManager: () => Promise<boolean>
-  CreateEvent: (data: EventMetadata, actions: OpenActionModuleInput[]) => Promise<boolean>
+  CreateEvent: (event: EventData, actions: OpenActionModuleInput[], file?: File) => Promise<boolean>
   AttendEvent: (id: string) => Promise<boolean>
   DeleteEvent: (id: string) => Promise<boolean>
   Comment: (id: string, content: string) => Promise<boolean>
@@ -42,14 +42,14 @@ const defaultState: LensStateContext = {
   authenticated: false,
   client: new LensClient({ environment: LENS_ENVIRONMENT }),
   events: [],
-  Authenticate: async () => {},
+  Authenticate: async () => { },
   CreateProfile: async (handle: string) => true,
   SetProfileManager: async () => true,
-  CreateEvent: async (data: EventMetadata, actions: OpenActionModuleInput[]) => true,
+  CreateEvent: async (event: EventData, actions: OpenActionModuleInput[], file?: File) => true,
   AttendEvent: async (id: string) => true,
   DeleteEvent: async (id: string) => true,
   Comment: async (id: string, content: string) => true,
-  GetEvents: async () => {},
+  GetEvents: async () => { },
   GetAttendees: async (id: string) => [],
 }
 
@@ -88,6 +88,13 @@ export function LensV2Provider(props: PropsWithChildren) {
       const metadata = item.metadata as EventMetadataV3Fragment
       const attendees = await GetAttendees(item.id)
 
+      let imageURI = 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2'
+      let rawImageURI = ''
+      if (item.metadata.attachments.length > 0) {
+        imageURI = item.metadata.attachments[0].image.optimized.uri
+        rawImageURI = item.metadata.attachments[0].image.raw.uri
+      }
+
       const event = {
         id: item.id,
         title: `Event ${item.id}`, // metadata.title, // TODO: missing in API
@@ -108,6 +115,8 @@ export function LensV2Provider(props: PropsWithChildren) {
         location: metadata.location,
         geographic: metadata.geographic,
         contentURI: metadata.rawURI,
+        imageURI: imageURI,
+        rawImageURI: rawImageURI,
 
         attendees: attendees,
       } as EventPublication
@@ -261,8 +270,24 @@ export function LensV2Provider(props: PropsWithChildren) {
     return false
   }
 
-  async function CreateEvent(data: EventMetadata, actions: OpenActionModuleInput[] = []) {
-    console.log('LensProvider.CreateEvent', data)
+  async function CreateEvent(event: EventData, actions: OpenActionModuleInput[] = [], file?: File) {
+    console.log('LensProvider.CreateEvent', event)
+
+    let imageURI = ''
+    if (file) {
+      imageURI = await uploadToIPFS(file)
+    }
+    const data = lensEvent({
+      ...event,
+      attachments: imageURI
+        ? [
+          {
+            item: imageURI,
+            type: MediaImageMimeType.PNG,
+          },
+        ]
+        : [],
+    })
 
     const content = JSON.stringify(data)
     const contentURI = await uploadToIPFS(content)
@@ -370,11 +395,23 @@ export function LensV2Provider(props: PropsWithChildren) {
     })
   }
 
-  async function uploadToIPFS(data: string) {
+  async function uploadToIPFS(data: string | File) {
     console.log('Upload to IPFS', data)
-    const cid = await Store('post.json', data)
-    const status = await Verify(cid, true)
-    if (!status) console.error('Unable to verify CID', cid)
+
+    let cid = ''
+    if (typeof data === 'string') {
+      cid = await Store('post.json', data)
+    }
+    if (data instanceof File) {
+      cid = await Upload(data)
+    }
+
+    try {
+      const status = await Verify(cid, true)
+      if (!status) console.error('Unable to verify CID', cid)
+    } catch (e) {
+      console.error('Unable to verify CID', cid)
+    }
 
     return `ipfs://${cid}`
   }

@@ -10,6 +10,12 @@ import dayjs from 'dayjs'
 import { ChangeEvent, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { useRouter } from 'next/navigation'
+import { FileUpload } from './upload'
+
+interface FilePreview {
+  url: string
+  file: File
+}
 
 export function CreateEvent() {
   const router = useRouter()
@@ -17,6 +23,7 @@ export function CreateEvent() {
   const lens = useLensContext()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [filePreview, setFilePreview] = useState<FilePreview | undefined>()
   const [collect, setCollect] = useState({
     price: 0,
     limit: 0,
@@ -45,7 +52,6 @@ export function CreateEvent() {
     ) {
       return setMessage('Please fill in all required fields.')
     }
-
     setMessage('')
 
     const simpleCollectOpenAction: SimpleCollectOpenActionModuleInput = {
@@ -75,12 +81,16 @@ export function CreateEvent() {
     if (!lens.authenticated) {
       await lens.Authenticate()
     }
-    const data = event({
-      ...eventData,
-      startsAt: dayjs(eventData.startsAt).toISOString(),
-      endsAt: dayjs(eventData.endsAt).toISOString(),
-    })
-    const result = await lens.CreateEvent(data, actions)
+
+    const result = await lens.CreateEvent(
+      {
+        ...eventData,
+        startsAt: dayjs(eventData.startsAt).toISOString(),
+        endsAt: dayjs(eventData.endsAt).toISOString(),
+      },
+      actions,
+      filePreview?.file
+    )
     if (result) {
       await lens.GetEvents()
       router.push('/')
@@ -129,6 +139,17 @@ export function CreateEvent() {
         [e.target.id]: e.target.value,
       }
     })
+  }
+
+  async function handleFileUpload(file: File) {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = async function () {
+      setFilePreview({
+        url: reader.result as string,
+        file,
+      })
+    }
   }
 
   return (
@@ -214,6 +235,21 @@ export function CreateEvent() {
           </label>
           <input id='website' type='text' className='input input-sm input-bordered w-full' onChange={handleChange} />
         </div>
+
+        <h3 className='text-lg font-bold my-4'>
+          Cover{' '}
+          {filePreview?.url && (
+            <button className='btn btn-xs ml-4' onClick={() => setFilePreview(undefined)}>
+              clear
+            </button>
+          )}
+        </h3>
+        {filePreview?.url && (
+          <div className='w-full h-64'>
+            <img src={filePreview.url} alt='Image preview' className='rounded-lg w-full h-full object-cover' />
+          </div>
+        )}
+        {!filePreview && <FileUpload onFileUpload={handleFileUpload} />}
 
         <h3 className='text-lg font-bold mt-4'>Tickets</h3>
         <p className='text-sm text-gray-500 mb-4'>Allow attendees to buy tickets using Lens Collect modules</p>

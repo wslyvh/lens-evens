@@ -22,6 +22,8 @@ export interface EventPublication {
   location: string | any
   geographic: string | any
   contentURI: string
+  imageURI: string
+  rawImageURI: string
 
   attendees: Profile[]
 }

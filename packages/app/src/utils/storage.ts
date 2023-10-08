@@ -18,6 +18,16 @@ export async function Store(name: string, serialized: string) {
   return cid
 }
 
+export async function Upload(file: File) {
+  console.log('Upload to web3.storage', file.name)
+
+  const cid = await client.put([file], {
+    wrapWithDirectory: false,
+  })
+
+  return cid
+}
+
 export async function List() {
   console.log('Listing files..')
 
@@ -45,10 +55,18 @@ export async function Verify(cid: string, includeGateways: boolean = false) {
   if (!post) console.error('Unable to fetch from Web3Storage SDK')
 
   if (includeGateways) {
-    const ipfs = await fetch(`https://ipfs.io/ipfs/${cid}`)
-    if (ipfs.status !== 200) console.error('Unable to fetch from IPFS IO')
-    const cloudflare = await fetch(`https://cloudflare-ipfs.com/ipfs/${cid}`)
-    if (cloudflare.status !== 200) console.error('Unable to fetch from Cloudflare')
+    try {
+      const ipfs = await fetch(`https://ipfs.io/ipfs/${cid}`)
+      if (ipfs.status !== 200) console.error('Unable to fetch from IPFS Gateway')
+    } catch (e) {
+      console.error('Unable to fetch from IPFS Gateway')
+    }
+    try {
+      const cloudflare = await fetch(`https://cloudflare-ipfs.com/ipfs/${cid}`)
+      if (cloudflare.status !== 200) console.error('Unable to fetch from Cloudflare')
+    } catch (e) {
+      console.error('Unable to fetch from Cloudflare')
+    }
   }
 
   return true
