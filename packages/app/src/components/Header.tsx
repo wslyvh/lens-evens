@@ -11,9 +11,15 @@ import { useLensContext } from '@/context/Lens'
 export function Header() {
   const lens = useLensContext()
 
+  async function Auth() {
+    await lens.Authenticate()
+  }
   async function CreateProfile() {
     const username = new Date().valueOf().toString()
     await lens.CreateProfile(username)
+  }
+  async function ProfileManager() {
+    const username = new Date().valueOf().toString()
     await lens.SetProfileManager()
   }
 
@@ -24,9 +30,15 @@ export function Header() {
       </LinkComponent>
 
       <div className='flex gap-4'>
-        <button className='btn btn-xs' onClick={CreateProfile}>
-          TEST PROFILE
+        {/* <button className='btn btn-xs' onClick={Auth}>
+          AUTH
         </button>
+        <button className='btn btn-xs' onClick={CreateProfile}>
+          CREATE PROFILE
+        </button>
+        <button className='btn btn-xs' onClick={ProfileManager}>
+          SET MANAGER
+        </button> */}
 
         <Connect />
 

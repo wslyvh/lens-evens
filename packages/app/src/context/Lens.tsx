@@ -142,32 +142,24 @@ export function LensV2Provider(props: PropsWithChildren) {
       return
     }
 
-    if (state.authenticated) return
-
-    // Check if client is authenticated
     const isAuthenticated = await state.client.authentication.isAuthenticated()
-    let profileId = await state.client.authentication.getProfileId()
-    if (isAuthenticated && profileId) {
-      console.error('Client already authenticated. Set profile id', profileId)
-      const accessTokenResult = await state.client.authentication.getAccessToken()
-      const accessToken = accessTokenResult.unwrap()
-      console.log('Access Token', accessToken)
-
-      setState((state) => ({ ...state, authenticated: true, profileId: profileId as string }))
-    } else {
-      // Check if account has profiles
-      const ownedProfilesResult = await state.client.profile.fetchAll({
-        where: { ownedBy: [account.address] },
-      })
-
-      if (ownedProfilesResult.items.length === 0) {
-        console.error('No Profiles found for account address')
-        return
-      }
-
-      profileId = ownedProfilesResult.items[0].id
+    if (isAuthenticated && state.authenticated) {
+      console.log('Already authenticated')
+      return
     }
 
+    let profileId = await state.client.authentication.getProfileId()
+    // Check if account has profiles
+    const ownedProfilesResult = await state.client.profile.fetchAll({
+      where: { ownedBy: [account.address] },
+    })
+
+    if (ownedProfilesResult.items.length === 0) {
+      console.error('No Profiles found for account address')
+      return
+    }
+
+    profileId = ownedProfilesResult.items[0].id
     try {
       console.log(`Generate challenge for ${profileId} signed by ${account.address}`)
       const challenge = await state.client.authentication.generateChallenge({
