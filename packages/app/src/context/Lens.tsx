@@ -142,6 +142,8 @@ export function LensV2Provider(props: PropsWithChildren) {
       return
     }
 
+    if (state.authenticated) return
+
     // Check if client is authenticated
     const isAuthenticated = await state.client.authentication.isAuthenticated()
     let profileId = await state.client.authentication.getProfileId()
@@ -272,6 +274,8 @@ export function LensV2Provider(props: PropsWithChildren) {
 
   async function CreateEvent(event: EventData, actions: OpenActionModuleInput[] = [], file?: File) {
     console.log('LensProvider.CreateEvent', event)
+
+    await AuthenticateCallback()
 
     let imageURI = ''
     if (file) {

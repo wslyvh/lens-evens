@@ -1,7 +1,7 @@
 'use client'
 
 import { useLensContext } from '@/context/Lens'
-import { TOKEN_ADDRESS } from '@/utils/lens'
+import { LENS_APP_ID, TOKEN_ADDRESS } from '@/utils/lens'
 import { EventData } from '@/utils/types'
 import { InformationCircleIcon } from '@heroicons/react/24/outline'
 import { event } from '@lens-protocol/metadata'
@@ -30,7 +30,7 @@ export function CreateEvent() {
     followersOnly: false,
   })
   const [eventData, setEventData] = useState<EventData>({
-    appId: 'lens-evens',
+    appId: LENS_APP_ID,
     locale: 'en',
     title: '',
     content: '',
